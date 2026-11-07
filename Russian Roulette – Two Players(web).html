@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Russian Roulette – Two Players</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#efe6d2;--ink:#2a1114;--panel:#f7f0e0;--line:#cdbf9f;--p1:#b0791a;--p2:#2f6f80;--hit:#b3261e;--muted:#6e5a55;--on:#fff;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#2a1013;--ink:#f1e7d0;--panel:#3a171b;--line:#5a2c31;--p1:#e0b04f;--p2:#6fb3c4;--hit:#ff5a48;--muted:#b79c93;--on:#1c0a0c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#2a1013;--ink:#f1e7d0;--panel:#3a171b;--line:#5a2c31;--p1:#e0b04f;--p2:#6fb3c4;--hit:#ff5a48;--muted:#b79c93;--on:#1c0a0c;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Barlow Condensed","Arial Narrow",Arial,sans-serif;font-size:19px;line-height:1.35;min-height:100vh}
+main{max-width:460px;margin:0 auto;padding:18px 16px 40px}
+h1{font-family:Rye,Georgia,serif;font-weight:400;font-size:2.1rem;line-height:1.1;margin:6px 0 4px;text-align:center}
+.sub{text-align:center;color:var(--muted);margin:0 0 18px}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.pl{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:8px 12px;transition:border-color .2s,transform .2s}
+.pl b{display:block;font-size:1.15rem}
+.pl span{color:var(--muted);font-size:.95rem}
+.pl.p1{border-left:8px solid var(--p1)}.pl.p2{border-left:8px solid var(--p2)}
+.pl.on.p1{border-color:var(--p1)}.pl.on.p2{border-color:var(--p2)}
+.pl.on{transform:translateY(-2px)}
+.pl.dead{opacity:.45;text-decoration:line-through}
+.panel{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.panel h2{margin:0 0 4px;font-size:1.3rem}
+.panel p{margin:0 0 12px;color:var(--muted)}
+.pick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+button{font:inherit;font-weight:700;font-size:1.1rem;cursor:pointer;border-radius:10px;border:2px solid var(--ink);background:transparent;color:var(--ink);padding:12px 10px;min-height:48px}
+button:focus-visible{outline:3px solid var(--p2);outline-offset:2px}
+.pick button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.go{width:100%;background:var(--hit);border-color:var(--hit);color:#fff;font-size:1.25rem}
+.go:disabled,.act button:disabled{opacity:.4;cursor:not-allowed}
+.hidden{display:none!important}
+.wheelbox{position:relative;width:230px;height:230px;margin:6px auto 12px}
+.wheel{position:absolute;inset:0;border-radius:50%;border:5px solid var(--ink);background:conic-gradient(var(--p1) 0 180deg,var(--p2) 180deg 360deg);transition:transform 3.6s cubic-bezier(.12,.7,.1,1)}
+.wheel i{position:absolute;top:50%;font-style:normal;font-weight:700;font-size:1.05rem;color:var(--on);transform:translateY(-50%)}
+.wheel .l1{left:62%}.wheel .l2{left:8%}
+.hub{position:absolute;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:var(--ink);border:4px solid var(--bg)}
+.ptr{position:absolute;left:50%;top:-8px;margin-left:-13px;border:13px solid transparent;border-top:24px solid var(--hit);border-bottom:0;filter:drop-shadow(0 1px 0 var(--bg))}
+.status{text-align:center;font-size:1.35rem;font-weight:700;min-height:1.8em;margin:0 0 10px}
+.act{display:grid;gap:10px}
+.act .opp{background:var(--hit);border-color:var(--hit);color:#fff}
+.cylbox{display:flex;align-items:center;gap:14px}
+.cylbox svg{width:150px;height:150px;flex:none;overflow:visible}
+#cyl{transform-origin:100px 100px;transition:transform .5s cubic-bezier(.3,1.4,.5,1)}
+.ch{fill:var(--bg);stroke:var(--ink);stroke-width:3}
+.ch.blank{fill:var(--line)}
+.ch.hit{fill:var(--hit)}
+.odds{margin:0}
+.odds b{font-size:1.5rem;display:block;line-height:1.1}
+.log{list-style:none;margin:0;padding:0;color:var(--muted)}
+.log li{padding:5px 0;border-bottom:1px solid var(--line)}
+.log li:first-child{color:var(--ink);font-weight:700}
+.flash{position:fixed;inset:0;background:var(--hit);opacity:0;pointer-events:none;z-index:5}
+.flash.on{animation:fl .6s ease-out}
+@keyframes fl{0%{opacity:.75}100%{opacity:0}}
+@media (prefers-reduced-motion:no-preference){.shake{animation:sh .4s}}
+@keyframes sh{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.wheel{transition-duration:.6s}#cyl{transition:none}}
+.over h2{font-family:Rye,Georgia,serif;font-weight:400;font-size:1.6rem}
+</style>
+</head>
+<body>
+<div class="flash" id="flash"></div>
+<main id="app">
+  <h1>Russian Roulette</h1>
+  <p class="sub">Eight chambers, two players. The wheel decides who pulls the trigger. Survive a shot at yourself and you go again.</p>
+
+  <div class="players">
+    <div class="pl p1" id="pl0"><b>Player 1</b><span>Wins: <em id="w0">0</em></span></div>
+    <div class="pl p2" id="pl1"><b>Player 2</b><span>Wins: <em id="w1">0</em></span></div>
+  </div>
+
+  <section class="panel" id="setup">
+    <h2>Load the revolver</h2>
+    <p>Choose how many live rounds go into the 8 chambers.</p>
+    <div class="pick" id="pick" role="group" aria-label="Number of bullets">
+      <button data-n="1" aria-pressed="true">1 bullet</button>
+      <button data-n="2" aria-pressed="false">2 bullets</button>
+      <button data-n="3" aria-pressed="false">3 bullets</button>
+    </div>
+    <button class="go" id="start">Spin the wheel</button>
+  </section>
+
+  <section id="game" class="hidden">
+    <div class="wheelbox"><div class="ptr"></div>
+      <div class="wheel" id="wheel"><i class="l1">Player 1</i><i class="l2">Player 2</i><div class="hub"></div></div>
+    </div>
+    <p class="status" id="status" aria-live="polite"></p>
+    <div class="act hidden" id="act">
+      <button class="opp" id="shootOther"></button>
+      <button id="shootSelf"></button>
+    </div>
+
+    <section class="panel" style="margin-top:16px">
+      <div class="cylbox">
+        <svg viewBox="0 0 200 200" aria-label="Revolver cylinder with 8 chambers">
+          <path d="M88 4h24l-12 20z" fill="var(--hit)"/>
+          <circle cx="100" cy="100" r="96" fill="var(--panel)" stroke="var(--ink)" stroke-width="4"/>
+          <g id="cyl"></g>
+          <circle cx="100" cy="100" r="9" fill="var(--ink)"/>
+        </svg>
+        <p class="odds"><b id="odds"></b><span id="oddsTxt"></span></p>
+      </div>
+    </section>
+    <ul class="log" id="log"></ul>
+  </section>
+</main>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var N=1, chambers=[], fired=0, turn=0, rot=0, busy=false, wins=[0,0], over=false;
+  var ac=null;
+
+  function audio(){ if(!ac){ try{ ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+  function tone(f,d,type,v){ if(!ac)return; var o=ac.createOscillator(),g=ac.createGain(); o.type=type||'square'; o.frequency.value=f; g.gain.value=v||.05; g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d); o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime+d); }
+  function bang(){ if(!ac)return; var len=ac.sampleRate*.4,b=ac.createBuffer(1,len,ac.sampleRate),d=b.getChannelData(0); for(var i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3); var s=ac.createBufferSource(),g=ac.createGain(); g.gain.value=.5; s.buffer=b; s.connect(g); g.connect(ac.destination); s.start(); }
+
+  // build cylinder
+  var cyl=$('cyl'), NS='http://www.w3.org/2000/svg', circles=[];
+  for(var i=0;i<8;i++){
+    var a=i*Math.PI/4, c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',(100+62*Math.sin(a)).toFixed(1));
+    c.setAttribute('cy',(100-62*Math.cos(a)).toFixed(1));
+    c.setAttribute('r',17); c.setAttribute('class','ch');
+    cyl.appendChild(c); circles.push(c);
+  }
+
+  $('pick').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    N=+b.dataset.n;
+    [].forEach.call($('pick').children,function(x){x.setAttribute('aria-pressed',x===b)});
+  });
+
+  function names(i){return 'Player '+(i+1)}
+  function mark(){
+    $('pl0').classList.toggle('on',turn===0&&!busy&&!over);
+    $('pl1').classList.toggle('on',turn===1&&!busy&&!over);
+  }
+  function odds(){
+    var left=chambers.slice(fired).filter(Boolean).length, rem=8-fired;
+    $('odds').textContent=Math.round(left/rem*100)+'% live';
+    $('oddsTxt').textContent=left+' live round'+(left>1?'s':'')+' in the '+rem+' chamber'+(rem>1?'s':'')+' not yet fired.';
+  }
+  function log(t){
+    var li=document.createElement('li'); li.textContent=t; var L=$('log'); L.insertBefore(li,L.firstChild);
+    while(L.children.length>6)L.removeChild(L.lastChild);
+  }
+
+  function load(){
+    chambers=[false,false,false,false,false,false,false,false];
+    var placed=0; while(placed<N){ var k=Math.floor(Math.random()*8); if(!chambers[k]){chambers[k]=true;placed++} }
+    fired=0; over=false;
+    circles.forEach(function(c){c.setAttribute('class','ch')});
+    cyl.style.transform='rotate(0deg)';
+    $('log').innerHTML='';
+    odds();
+  }
+
+  function spin(){
+    busy=true; mark(); $('act').classList.add('hidden');
+    $('status').textContent='Spinning the wheel…';
+    var w=Math.random()<.5?0:1;
+    var a=w===0?15+Math.random()*150:195+Math.random()*150;
+    var base=Math.ceil(rot/360)*360+360*5;
+    rot=base+(360-a);
+    $('wheel').style.transform='rotate('+rot+'deg)';
+    var n=0, t=setInterval(function(){tone(900-n*8,.04,'square',.03);n++;if(n>30)clearInterval(t)},110);
+    var dur=window.matchMedia('(prefers-reduced-motion:reduce)').matches?700:3700;
+    setTimeout(function(){
+      turn=w; busy=false; mark();
+      $('status').textContent=names(turn)+', it’s your turn.';
+      $('shootOther').textContent='Shoot '+names(1-turn);
+      $('shootSelf').textContent='Shoot yourself';
+      $('shootOther').disabled=$('shootSelf').disabled=false;
+      $('act').classList.remove('hidden');
+      log(names(turn)+' was picked by the wheel.');
+    },dur);
+  }
+
+  function shoot(self){
+    if(busy||over)return; audio();
+    busy=true; $('shootOther').disabled=$('shootSelf').disabled=true;
+    var target=self?turn:1-turn, shooter=turn, idx=fired;
+    var live=chambers[idx];
+    fired++;
+    cyl.style.transform='rotate('+(-fired*45)+'deg)';
+    $('status').textContent='Click…';
+    tone(180,.08,'square',.08);
+    setTimeout(function(){
+      circles[idx].setAttribute('class','ch '+(live?'hit':'blank'));
+      if(live){
+        bang(); over=true; busy=false;
+        var f=$('flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+        $('app').classList.remove('shake'); void $('app').offsetWidth; $('app').classList.add('shake');
+        var winner=1-target; wins[winner]++;
+        $('w0').textContent=wins[0]; $('w1').textContent=wins[1];
+        $('pl'+target).classList.add('dead');
+        log(names(shooter)+' shot '+(self?'themself':names(target))+'. BANG.');
+        $('status').textContent='';
+        $('act').classList.add('hidden');
+        gameOver(winner,target,self,shooter);
+      }else{
+        tone(420,.12,'triangle',.06);
+        log(names(shooter)+' shot '+(self?'themself':names(target))+': empty chamber.');
+        odds();
+        if(self){
+          $('status').textContent='Empty. '+names(shooter)+' survived and shoots again.';
+          setTimeout(function(){
+            busy=false; mark();
+            $('status').textContent=names(shooter)+', go again.';
+            $('shootOther').disabled=$('shootSelf').disabled=false;
+          },1300);
+        }else{
+          $('status').textContent='Empty. Spinning again…';
+          setTimeout(spin,1300);
+        }
+      }
+    },700);
+  }
+
+  function gameOver(winner,loser,self,shooter){
+    var p=document.createElement('section'); p.className='panel over'; p.id='overPanel';
+    var msg=self?names(shooter)+' shot themself.':names(shooter)+' shot '+names(loser)+'.';
+    p.innerHTML='<h2></h2><p></p><button class="go">Play again</button>';
+    p.querySelector('h2').textContent=names(winner)+' wins';
+    p.querySelector('p').textContent=msg+' Change the bullet count if you like, then reload the revolver.';
+    p.querySelector('button').onclick=function(){
+      p.remove(); $('game').classList.add('hidden'); $('setup').classList.remove('hidden');
+      $('pl0').classList.remove('dead'); $('pl1').classList.remove('dead'); mark();
+    };
+    $('game').insertBefore(p,$('log'));
+    p.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+
+  $('start').onclick=function(){
+    audio(); load();
+    $('setup').classList.add('hidden'); $('game').classList.remove('hidden');
+    spin();
+  };
+  $('shootOther').onclick=function(){shoot(false)};
+  $('shootSelf').onclick=function(){shoot(true)};
+})();
+</script>
+</body>
+</html>
